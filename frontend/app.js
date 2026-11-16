@@ -191,11 +191,13 @@ async function compile() {
     if (n !== compileSequence) return;
     state.code = data.code;
     highlightCode();
+    window.CodeWorkspace?.syncVisual(state.project, data.code);
     $("footer-status").textContent = state.project.code_override
       ? "Manual Python override is active."
       : "All changes are local. Your next idea is one drag away.";
   } catch (e) {
     if (n === compileSequence) {
+      window.CodeWorkspace?.visualError(e.message);
       $("footer-status").textContent = e.message;
       if (state.inspector === "code") {
         $("code-highlight").textContent = e.message;
@@ -1504,6 +1506,7 @@ async function metadata(source) {
   return mediaMetadata.get(source);
 }
 function setMode(mode) {
+  window.CodeWorkspace?.leave();
   state.mode = mode;
   document
     .querySelectorAll("[data-mode]")
@@ -1897,6 +1900,7 @@ async function renderProject(quality) {
 }
 function startJob(job) {
   state.job = job.id;
+  window.CodeWorkspace?.setBusy(true);
   $("console-drawer").hidden = false;
   $("console-output").textContent = "Starting local process…";
   $("job-download").hidden = true;
@@ -1923,6 +1927,7 @@ async function pollJob(id) {
     $("console-count").textContent = job.logs.length;
     if (["completed", "failed", "cancelled"].includes(job.status)) {
       state.job = null;
+      window.CodeWorkspace?.setBusy(false);
       $("job-cancel").hidden = true;
       $("draft-render").disabled = false;
       $("production-render").disabled = false;
@@ -1954,6 +1959,7 @@ async function pollJob(id) {
     setTimeout(() => pollJob(id), 700);
   } catch (e) {
     state.job = null;
+    window.CodeWorkspace?.setBusy(false);
     $("draft-render").disabled = false;
     $("production-render").disabled = false;
     fail(e);
@@ -2589,4 +2595,20 @@ async function init() {
     document.body.append(error);
   }
 }
+// An additive bridge lets the dedicated code workspace use the existing job,
+// console and media workflow without changing the visual editor's state model.
+window.AnimathemaStudio = {
+  getProject: () => state.project,
+  getCode: () => state.code,
+  isBusy: () => pendingJob || Boolean(state.job),
+  beginCodeRequest: () => {
+    if (pendingJob || state.job) return false;
+    pendingJob = true;
+    return true;
+  },
+  endCodeRequest: () => { pendingJob = false; },
+  startJob,
+  toast,
+  pause: () => { if (state.playing) togglePlay(); else video.pause(); },
+};
 init();

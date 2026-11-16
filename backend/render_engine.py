@@ -9,6 +9,7 @@ import signal
 import sys
 import time
 import uuid
+from datetime import datetime, timezone
 
 WORKSPACE = Path(os.environ.get('ANIMATHEMA_WORKSPACE', str(Path(__file__).resolve().parent.parent / 'workspace'))).resolve()
 WORKSPACE.mkdir(parents=True, exist_ok=True)
@@ -138,18 +139,23 @@ class Jobs:
 jobs = Jobs()
 
 
-async def render(job, project, quality, code):
-    folder = WORKSPACE / 'renders' / job['id']
+async def render(job, project, quality, code, *, scene_name='AnimathemaScene', custom=False):
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S_%fZ') if custom else None
+    folder = (WORKSPACE / 'custom_renders' / f'{stamp}_{job["id"]}'
+              if custom else WORKSPACE / 'renders' / job['id'])
     folder.mkdir(parents=True)
-    script = folder / 'scene.py'
+    script = folder / (f'scene_{stamp}.py' if custom else 'scene.py')
     script.write_text(code,encoding='utf-8')
     await jobs.command(job,[sys.executable,'-m','manim','render','-ql' if quality=='draft' else '-qh',
-        '--media_dir',folder/'media','--format','mp4','--disable_caching','--progress_bar','display',script,'AnimathemaScene'],cwd=folder)
+        '--media_dir',folder/'media','--format','mp4','--disable_caching','--progress_bar','display',script,scene_name],cwd=folder)
     outputs = [p for p in (folder/'media'/'videos').rglob('*.mp4') if 'partial_movie_files' not in p.parts]
     if not outputs:
-        raise RuntimeError('Manim finished without producing a video. Edited code must render AnimathemaScene.')
+        raise RuntimeError(f'Manim finished without producing a video. Edited code must render {scene_name}.')
     path = max(outputs,key=lambda p:p.stat().st_mtime)
     from .video_editor import probe
     info = await probe(path)
     source = path.relative_to(WORKSPACE).as_posix()
-    return {'source':source,'url':'/media/'+source,'name':project.name,**info}
+    result = {'source':source,'url':'/media/'+source,'name':project.name,**info}
+    if custom:
+        result.update(scene_name=scene_name, script=script.relative_to(WORKSPACE).as_posix())
+    return result

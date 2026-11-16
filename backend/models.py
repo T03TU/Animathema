@@ -123,3 +123,12 @@ class ExportRequest(Model):
 class SplitRequest(Model):
     clip: Clip
     time: float = Field(ge=0)
+
+
+class CodeSourceRequest(Model):
+    code: str = Field(min_length=1, max_length=200000)
+
+
+class CodeRenderRequest(CodeSourceRequest):
+    scene_name: str | None = Field(default=None, max_length=200)
+    quality: Literal['low', 'high'] = 'low'

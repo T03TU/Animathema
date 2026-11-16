@@ -15,6 +15,8 @@
     />
     <link rel="stylesheet" href="/static/styles.css" />
     <script defer src="/static/app.js"></script>
+    <link rel="stylesheet" href="/static/code_workspace.css" />
+    <script defer src="/static/code_workspace.js"></script>
   </head>
   <body>
     <header class="app-header">
@@ -140,6 +142,7 @@
               ▷ <span>Render monitor</span
               ><span id="render-badge" class="badge" hidden>0</span>
             </button>
+            <button id="code-workspace-toggle" aria-pressed="false" title="Open the Manim code workspace">&lt;/&gt; <span>Code</span></button>
           </div>
           <div class="viewport-actions">
             <button
@@ -238,6 +241,31 @@
             ><span class="gizmo-x">X</span>
           </div>
         </div>
+        <section id="direct-code-workspace" class="direct-code-workspace" aria-label="Manim code workspace" hidden>
+          <div class="direct-code-heading">
+            <div><strong>Manim Python</strong><span id="direct-code-status" class="direct-code-status">Synced with Visual Scene</span></div>
+            <button id="direct-code-reset" class="quiet-button">Reset to Visual Scene</button>
+          </div>
+          <div class="direct-code-actions">
+            <label class="direct-scene-label">Scene <select id="direct-code-scene" aria-label="Scene class to render"><option value="">Detecting scenes…</option></select></label>
+            <button id="direct-code-copy" class="quiet-button">Copy Code</button>
+            <button id="direct-code-download" class="quiet-button">Download .py</button>
+          </div>
+          <div class="direct-editor-shell">
+            <pre id="direct-code-lines" class="direct-code-lines" aria-hidden="true">1</pre>
+            <div class="direct-editor-text">
+              <pre id="direct-code-highlight" class="direct-code-highlight" aria-hidden="true"></pre>
+              <textarea id="direct-code-source" class="direct-code-source" aria-label="Direct Manim Python code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off"></textarea>
+            </div>
+          </div>
+          <div id="direct-code-diagnostic" class="direct-code-diagnostic" role="status" hidden></div>
+          <div class="direct-code-renderbar">
+            <span id="direct-code-validation">Checking Python…</span>
+            <button id="direct-code-draft" class="draft-button">▶ Render Code · Draft</button>
+            <button id="direct-code-production" class="primary-button">Render Code · Production ↗</button>
+          </div>
+          <div class="direct-code-footnote"><span id="direct-code-note">Python runs locally through Manim · Tab / Shift+Tab to indent</span><span id="direct-code-cursor">Ln 1, Col 1</span></div>
+        </section>
         <div class="viewport-footer">
           <span
             ><span class="purple-dot"></span>

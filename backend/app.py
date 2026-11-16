@@ -10,7 +10,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from .models import Project, RenderRequest, ExportRequest, SplitRequest
+from .models import Project, RenderRequest, ExportRequest, SplitRequest, CodeSourceRequest, CodeRenderRequest
+from .code_editor import analyze_manim_code, select_scene, syntax_diagnostic
 from .presets import catalog, demo
 from .scene_compiler import compile_scene
 from .render_engine import WORKSPACE, jobs, diagnostics, render
@@ -108,6 +109,44 @@ async def start_render(request: RenderRequest):
     return jobs.create('render',lambda job:render(job,request.project,request.quality,code))
 
 
+def code_syntax_response(error):
+    diagnostic = syntax_diagnostic(error)
+    return JSONResponse({
+        'detail': f'Python syntax error at line {error.lineno}, column {error.offset}: {error.msg}',
+        'diagnostic': diagnostic,
+    }, status_code=400)
+
+
+@app.post('/api/compile/visual')
+def compile_visual(project: Project):
+    return {'code': compile_scene(project, use_override=False)}
+
+
+@app.post('/api/code/analyze')
+def analyze_editor_source(request: CodeSourceRequest):
+    try:
+        return analyze_manim_code(request.code)
+    except SyntaxError as error:
+        return code_syntax_response(error)
+
+
+@app.post('/api/render/code', status_code=202)
+async def start_code_render(request: CodeRenderRequest):
+    try:
+        analysis = analyze_manim_code(request.code)
+    except SyntaxError as error:
+        return code_syntax_response(error)
+    scene_name = select_scene(analysis, request.scene_name)
+    if not importlib.util.find_spec('manim'):
+        raise ValueError('Manim is missing. Run python -m pip install -r requirements.txt in the active environment.')
+    if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
+        raise ValueError('Rendering needs FFmpeg and ffprobe. Install the full FFmpeg package and restart Animathema.')
+    quality = 'draft' if request.quality == 'low' else 'production'
+    project = Project(name=scene_name)
+    return jobs.create('render', lambda job: render(
+        job, project, quality, analysis['code'], scene_name=scene_name, custom=True))
+
+
 @app.post('/api/split')
 def split_clip(request: SplitRequest):
     return {'clips':split(request.clip,request.time)}
@@ -142,7 +181,7 @@ async def cancel_job(job_id: str):
 @app.get('/api/media')
 async def media():
     result = []
-    for folder in ('renders','exports'):
+    for folder in ('renders','exports','custom_renders'):
         root = WORKSPACE/folder
         if root.exists():
             for p in sorted(root.rglob('*.mp4'),key=lambda p:p.stat().st_mtime,reverse=True):

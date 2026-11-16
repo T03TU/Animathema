@@ -11,8 +11,8 @@ from .render_engine import WORKSPACE, jobs
 def media_path(source):
     root = WORKSPACE.resolve()
     path = (root/source).resolve()
-    if not path.is_relative_to(root) or path.relative_to(root).parts[0] not in ('renders','exports') or path.suffix.lower() != '.mp4' or not path.is_file():
-        raise ValueError('Media must be an existing MP4 inside workspace/renders or workspace/exports.')
+    if not path.is_relative_to(root) or path.relative_to(root).parts[0] not in ('renders','exports','custom_renders') or path.suffix.lower() != '.mp4' or not path.is_file():
+        raise ValueError('Media must be an existing MP4 inside workspace/renders, workspace/exports, or workspace/custom_renders.')
     return path
 
 

@@ -41,6 +41,28 @@ Primary references: [Manim installation](https://docs.manim.community/en/stable/
 
 The **Code** tab shows syntax-highlighted standalone Python. Download it as `scene.py`, or edit and apply a manual override defining `AnimathemaScene`. Reset the override to resume visual code generation. Manual code executes as local Python when rendering, so only run code you trust. Visual state remains stored alongside the override; arbitrary Python is not reverse-parsed into objects.
 
+## Code workspace & direct rendering
+
+Click **</> Code** beside Stage preview and Render monitor to open the full-size Python editor. It includes line numbers, live Python highlighting, Tab/Shift+Tab indentation, Copy Code, and Download .py, with no CDN or build dependencies.
+
+- **Synced with Visual Scene:** visual object, property, and animation changes automatically update the source. This source is compiled from the visual graph even if the original right-hand inspector has a separate legacy override.
+- **Custom Code Override:** typing or pasting freezes automatic updates to this editor. Your custom draft and selected scene are retained in this browser across mode switches and reloads. Download .py to keep a portable file; the draft is separate from project JSON and from the original inspector's `AnimathemaScene` override.
+- **Reset to Visual Scene:** replaces this editor's draft with freshly generated visual code. It does not remove objects, animations, clips, or the original inspector's override.
+- **Scene selection:** valid Python is inspected with `ast`, without importing or executing it, to discover scene classes. Direct Manim bases, imported aliases, qualified bases such as `mn.Scene`, and local subclasses populate the dropdown. Dynamic class factories are not statically detected. The installed Manim version determines which scene types are available; legacy types such as GraphScene may require updating the pasted code.
+- **Render Code · Draft / Production:** renders the exact current source and selected class through the existing async job and console workflow. When no Manim import is present, the execution script adds `from manim import *`, after any module docstring and future imports. Syntax diagnostics refer to the editor's original lines and columns. Runtime errors appear in the existing console with tracebacks.
+
+Successful renders open in the Render monitor and are added to the existing video track. Splitting, speed changes, trimming, cropping, and export work identically for these clips. Timestamped source and footage are stored under `workspace/custom_renders/`, and appear in the Render library. Rendering executes Python on your machine with the same privileges as the application; static validation checks syntax and scene names, not the safety of arbitrary code.
+
+The existing endpoints and right-hand Code inspector remain available. New API endpoints are:
+
+| Endpoint | Request / result |
+| --- | --- |
+| `POST /api/code/analyze` | `{ "code": "..." }` → scene names, execution source, and whether a Manim import was added |
+| `POST /api/compile/visual` | Existing project JSON → generated source, ignoring the legacy override without modifying it |
+| `POST /api/render/code` | `{ "code": "...", "scene_name": "MyScene", "quality": "low" }` → HTTP 202 and an existing-format render job |
+
+`scene_name` is optional and defaults to the first detected class. Quality accepts `low` (480p15, default) or `high` (1080p60). Poll `GET /api/jobs/{id}` for logs/status; a completed job's `result` includes `url`, `source`, `scene_name`, and `script` paths. Syntax failures return HTTP 400 with a readable `detail` and a `diagnostic` containing one-based `line` and `column`, end positions, and source text.
+
 ## Preview scope
 
 The canvas is an interactive **schematic layout and motion preview**. It approximates text, LaTeX, curves, paths, and 3D projection; the 3D button changes the layout projection. Use a Manim render for exact typography, complex transforms, camera motion, and production geometry. The monitor plays source footage at the clip speed, with a crop overlay; the crop and final output framing are applied during export. A single video track is supported, with gaps and sequential clips, rather than compositing overlapping footage.
@@ -91,3 +113,5 @@ workspace/                  Local projects, scripts, videos, exports
 ```
 
 `python -m tests.verify_media` verifies real rendering, exact object appearance timing, editing, audio retiming, export, and camera animation in an isolated temporary workspace. `python -m tests.verify_browser` launches an isolated server with a disposable temporary workspace and verifies the interactive browser workflow without touching your active project. It uses installed Chrome, `ANIMATHEMA_CHROME`, or Playwright Chromium (`python -m playwright install chromium`). Screenshots are written to your system temporary directory.
+
+`python -m tests.verify_code_workspace` uses an isolated server/workspace to verify visual synchronization, protection and persistence of custom drafts, scene selection, syntax diagnostics, clipboard/download, real draft and production code renders, runtime failures, and the existing NLE export pipeline. It leaves your active project untouched.
