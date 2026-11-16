@@ -14,9 +14,13 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23a78bfa'/%3E%3Cpath d='M13 47 29 15h6l16 32M20 35h24' stroke='%23111217' stroke-width='5' fill='none'/%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/stage_viewport.css" />
+    <script defer src="/static/stage_viewport.js"></script>
     <script defer src="/static/app.js"></script>
     <link rel="stylesheet" href="/static/code_workspace.css" />
     <script defer src="/static/code_workspace.js"></script>
+    <link rel="stylesheet" href="/static/panes.css" />
+    <script defer src="/static/panes.js"></script>
   </head>
   <body>
     <header class="app-header">
@@ -67,16 +71,21 @@
         ><i>—</i><span>02 <b>Animate</b></span
         ><i>—</i><span>03 <b>Render & edit</b></span>
       </div>
+      <div class="pane-layout-actions" aria-label="Workspace layout">
+        <button id="pane-focus" data-pane-focus aria-pressed="false" title="Focus viewport; restore your layout with another click">⛶ <span>Focus</span></button>
+        <button id="pane-expand-all" data-pane-expand-all title="Expand all panes" aria-label="Expand all panes">↺</button>
+      </div>
       <button id="system-status" class="system-status">
         <span class="status-dot"></span> Checking engine
       </button>
     </nav>
     <main id="studio" class="studio">
-      <aside class="left-panel panel">
-        <section class="library">
+      <aside id="pane-left" class="left-panel panel">
+        <button class="pane-restore" data-pane-toggle="left" aria-controls="pane-left" hidden><span aria-hidden="true">›</span><span class="rail-label">Library &amp; Scene</span></button>
+        <section id="pane-library" class="library">
           <div class="panel-heading">
             <h2>Preset library</h2>
-            <span class="subtle">↗</span>
+            <div class="pane-heading-actions"><button class="pane-collapse" data-pane-section="library" aria-controls="pane-library" title="Collapse preset library" aria-label="Collapse preset library" aria-expanded="true">⌃</button><button class="pane-collapse" data-pane-toggle="left" aria-controls="pane-left" title="Collapse library and scene sidebar" aria-label="Collapse library and scene sidebar" aria-expanded="true">‹</button></div>
           </div>
           <div class="search-box">
             <span>⌕</span
@@ -101,19 +110,19 @@
           role="separator"
           aria-label="Resize outliner"
         ></div>
-        <section class="outliner-section">
+        <section id="pane-outliner" class="outliner-section">
           <div class="panel-heading">
             <h2>
               Scene collection <span id="object-count" class="count">6</span>
             </h2>
-            <button
+            <div class="pane-heading-actions"><button
               id="add-text"
               class="icon-button small"
               title="Add text"
               aria-label="Add text"
             >
               +
-            </button>
+            </button><button class="pane-collapse" data-pane-section="outliner" aria-controls="pane-outliner" title="Collapse scene collection" aria-label="Collapse scene collection" aria-expanded="true">⌃</button></div>
           </div>
           <div class="outliner-root">
             <span>⌄</span><span>▱</span>
@@ -133,7 +142,8 @@
         role="separator"
         aria-label="Resize preset panel"
       ></div>
-      <section class="viewport-panel panel">
+      <section id="pane-viewport" class="viewport-panel panel">
+        <button class="pane-restore" data-pane-toggle="viewport" aria-controls="pane-viewport" hidden><span aria-hidden="true">›</span><span class="rail-label">Viewport</span></button>
         <div class="viewport-heading">
           <div class="viewport-tabs">
             <button data-mode="stage" class="active">
@@ -144,7 +154,7 @@
             </button>
             <button id="code-workspace-toggle" aria-pressed="false" title="Open the Manim code workspace">&lt;/&gt; <span>Code</span></button>
           </div>
-          <div class="viewport-actions">
+          <div class="viewport-pane-actions"><div class="viewport-actions">
             <button
               id="draft-render"
               class="draft-button"
@@ -158,7 +168,7 @@
             >
               Production <span>↗</span>
             </button>
-          </div>
+          </div><button class="pane-collapse" data-pane-toggle="viewport" aria-controls="pane-viewport" aria-expanded="true" title="Collapse viewport" aria-label="Collapse viewport">‹</button></div>
         </div>
         <div class="viewport-toolbar">
           <div class="tool-group">
@@ -197,10 +207,13 @@
             ><span id="view-label">Scene / Layout</span>
           </div>
           <div class="tool-group">
+            <select id="view-preset" class="text-tool" aria-label="Camera view preset">
+              <option value="">View…</option><option value="top">Top</option><option value="front">Front</option><option value="side">Side</option><option value="iso">Isometric 3D</option>
+            </select>
             <button id="view-3d" class="text-tool" title="Toggle 3D projection">
               2D</button
-            ><button id="fit-view" class="text-tool" title="Fit view">
-              Fit <span>⌗</span>
+            ><button id="fit-view" class="text-tool" title="Reset View" aria-label="Reset View">
+              Reset View <span>⌗</span>
             </button>
           </div>
         </div>
@@ -220,6 +233,7 @@
           <div class="viewport-corner top-left">
             <span id="viewport-caption">PERSPECTIVE / FRONT</span
             ><span id="viewport-object">6 OBJECTS</span>
+            <span id="camera-hud">φ 0.0° θ -90.0° Zoom 1.00×</span>
           </div>
           <div class="viewport-corner top-right">
             <span id="resolution-label">16:9</span
@@ -236,9 +250,14 @@
           <div id="drop-hint" class="drop-hint" hidden>
             Drop to bring your idea to life
           </div>
-          <div class="axis-gizmo">
-            <span class="gizmo-y">Y</span><span class="gizmo-z">Z</span
-            ><span class="gizmo-x">X</span>
+          <div id="axis-gizmo" class="axis-gizmo" role="group" aria-label="2D XY axes">
+            <svg id="gizmo-lines" viewBox="0 0 90 90" aria-hidden="true"></svg>
+            <button data-view-axis="+X" aria-label="View from positive X">+X</button>
+            <button data-view-axis="-X" aria-label="View from negative X" hidden>−X</button>
+            <button data-view-axis="+Y" aria-label="View from positive Y">+Y</button>
+            <button data-view-axis="-Y" aria-label="View from negative Y" hidden>−Y</button>
+            <button data-view-axis="+Z" aria-label="View from positive Z" hidden>+Z</button>
+            <button data-view-axis="-Z" aria-label="View from negative Z" hidden>−Z</button>
           </div>
         </div>
         <section id="direct-code-workspace" class="direct-code-workspace" aria-label="Manim code workspace" hidden>
@@ -281,11 +300,12 @@
         role="separator"
         aria-label="Resize properties panel"
       ></div>
-      <aside class="right-panel panel">
+      <aside id="pane-inspector" class="right-panel panel">
+        <button class="pane-restore" data-pane-toggle="inspector" aria-controls="pane-inspector" hidden><span aria-hidden="true">‹</span><span class="rail-label">Properties / Code</span></button>
         <div class="inspector-tabs">
           <button data-inspector="properties" class="active">
             ☷ Properties</button
-          ><button data-inspector="code">⌘ Code</button>
+          ><button data-inspector="code">⌘ Code</button><button class="pane-collapse" data-pane-toggle="inspector" aria-controls="pane-inspector" aria-expanded="true" title="Collapse properties and code inspector" aria-label="Collapse properties and code inspector">›</button>
         </div>
         <div id="properties" class="properties"></div>
         <div id="code-panel" class="code-panel" hidden>
@@ -329,8 +349,9 @@
         role="separator"
         aria-label="Resize timeline"
       ></div>
-      <section class="timeline-panel panel">
+      <section id="pane-timeline" class="timeline-panel panel">
         <div class="timeline-toolbar">
+          <button class="pane-collapse" data-pane-toggle="timeline" aria-controls="pane-timeline" aria-expanded="true" title="Collapse timeline" aria-label="Collapse timeline">⌄</button>
           <div class="timeline-title">
             ▥
             <h2>Timeline</h2>

@@ -9,6 +9,8 @@ OBJECTS = {
     'VectorField': ('Plots', '⇶', {'x_expression': '-y/3', 'y_expression': 'x/3'}),
     'Circle': ('Geometry', '○', {'radius': 1}),
     'Square': ('Geometry', '□', {'side_length': 2}),
+    'Cube': ('Geometry', '⬡', {'side_length': 2}),
+    'Sphere': ('Geometry', '◉', {'radius': 1}),
     'Polygon': ('Geometry', '△', {'sides': 3, 'radius': 1.3}),
     'Vector': ('Geometry', '↗', {'x': 2, 'y': 1, 'z': 0}),
     'Line': ('Geometry', '╱', {'x': 2, 'y': 1}),
@@ -40,8 +42,8 @@ def demo():
         dict(id='sine', kind='FunctionGraph', name='sin(x)', color='#a78bfa', position=[0,-.5,0], params={'expression':'sin(x)', 'x_min':-5,'x_max':5}),
         dict(id='linear', kind='FunctionGraph', name='First order · x', color='#f5b65b', position=[0,-.5,0], params={'expression':'x','x_min':-3,'x_max':3}),
         dict(id='cubic', kind='FunctionGraph', name='Third order · x − x³/6', color='#5eead4', position=[0,-.5,0], params={'expression':'x-x**3/6','x_min':-3.4,'x_max':3.4}),
-        dict(id='title',kind='Text',stroke_width=0,name='Scene title',position=[0,2.9,0],color='#e2e8f0',params={'text':'A little closer to sine.','font_size':34}),
-        dict(id='subtitle',kind='Text',stroke_width=0,name='Series caption',position=[0,2.15,0],color='#94a3b8',params={'text':'Taylor series  /  around x = 0','font_size':17}),
+        dict(id='title',kind='Text',stroke_width=0,fixed_in_frame=True,name='Scene title',position=[0,2.9,0],color='#e2e8f0',params={'text':'A little closer to sine.','font_size':34}),
+        dict(id='subtitle',kind='Text',stroke_width=0,fixed_in_frame=True,name='Series caption',position=[0,2.15,0],color='#94a3b8',params={'text':'Taylor series  /  around x = 0','font_size':17}),
     ]
     animations = [
         dict(id='a_axes',kind='Create',object_id='axes',start=0,duration=1.5,track=0),

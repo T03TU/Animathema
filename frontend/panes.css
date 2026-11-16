@@ -1,0 +1,279 @@
+/* Pane visibility is separate from project state and the existing resize values. */
+.studio {
+  --layout-left: var(--left);
+  --layout-right: var(--right);
+  --layout-center: minmax(300px, 1fr);
+  --layout-top: minmax(170px, 1fr);
+  --layout-timeline: var(--timeline);
+  grid-template-columns: var(--layout-left) 4px var(--layout-center) 4px var(
+      --layout-right
+    );
+  grid-template-rows: var(--layout-top) 4px var(--layout-timeline);
+}
+.pane-layout-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+.pane-layout-actions button {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px;
+  color: #a89cb9;
+}
+.pane-layout-actions button[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: #a78bfa66;
+  background: #a78bfa15;
+}
+.pane-layout-actions + .system-status {
+  margin-left: 0;
+}
+.pane-heading-actions,
+.viewport-pane-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.pane-collapse {
+  display: inline-grid;
+  place-items: center;
+  width: 23px;
+  min-width: 23px;
+  height: 25px;
+  padding: 0;
+  color: #9c8cab;
+  font-size: 16px;
+  border-radius: 4px;
+}
+.pane-collapse:hover {
+  background: #b39af818;
+  color: #d0b8ff;
+}
+.pane-collapse:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.inspector-tabs > .pane-collapse {
+  margin-left: auto;
+  align-self: center;
+  border: 0;
+}
+.pane-restore {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  height: 100%;
+  padding: 9px 5px;
+  font-size: 19px;
+  color: #b29bcf;
+  background: #1b1822;
+  border: 1px solid #a78bfa20;
+}
+.pane-restore:hover {
+  color: #ddc6ff;
+  background: #26202f;
+}
+.pane-restore .rail-label {
+  writing-mode: vertical-rl;
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  color: #9d8bad;
+}
+.pane-is-collapsed:not(.timeline-panel) > :not(.pane-restore) {
+  display: none !important;
+}
+.studio.is-viewport-collapsed {
+  --layout-center: 32px;
+  --layout-left: minmax(var(--left), 1fr);
+  --layout-right: minmax(var(--right), 1fr);
+}
+.studio.is-left-collapsed {
+  --layout-left: 32px;
+}
+.studio.is-inspector-collapsed {
+  --layout-right: 32px;
+}
+.studio.is-timeline-collapsed {
+  --layout-timeline: 43px;
+}
+.timeline-panel.pane-is-collapsed > :not(.timeline-toolbar) {
+  display: none !important;
+}
+.timeline-panel.pane-is-collapsed .timeline-toolbar {
+  min-height: 43px;
+  border-bottom: 0;
+}
+.studio.is-left-collapsed.is-inspector-collapsed.is-viewport-collapsed {
+  --layout-center: minmax(32px, 1fr);
+  --layout-top: 32px;
+  --layout-timeline: minmax(43px, 1fr);
+}
+.studio.is-left-collapsed.is-inspector-collapsed.is-viewport-collapsed
+  .pane-restore {
+  padding: 0;
+  justify-content: center;
+}
+.studio.is-left-collapsed.is-inspector-collapsed.is-viewport-collapsed
+  .pane-restore
+  .rail-label {
+  display: none;
+}
+.studio.is-left-collapsed #left-resizer,
+.studio.is-inspector-collapsed #right-resizer,
+.studio.is-viewport-collapsed #left-resizer,
+.studio.is-viewport-collapsed #right-resizer,
+.studio.is-timeline-collapsed #timeline-resizer {
+  pointer-events: none;
+  cursor: default;
+}
+.library.section-is-collapsed {
+  flex: 0 0 39px;
+  height: 39px;
+  min-height: 39px;
+}
+.outliner-section.section-is-collapsed {
+  flex: 0 0 39px;
+  height: 39px;
+  min-height: 39px;
+}
+.section-is-collapsed > :not(.panel-heading) {
+  display: none !important;
+}
+.section-is-collapsed .panel-heading {
+  height: 39px;
+}
+.studio.is-outliner-collapsed:not(.is-library-collapsed) .library {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+.studio.is-library-collapsed #outliner-resizer,
+.studio.is-outliner-collapsed #outliner-resizer {
+  pointer-events: none;
+  cursor: default;
+}
+.prop-section .property-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+.prop-section .property-section-toggle .property-section-label {
+  color: inherit;
+  font: inherit;
+}
+.prop-section.property-is-collapsed > :not(h3) {
+  display: none !important;
+}
+.prop-section.property-is-collapsed {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+.prop-section.property-is-collapsed h3 {
+  margin-bottom: 0;
+}
+.layout-left-collapsed .console-drawer {
+  left: 42px;
+}
+.layout-inspector-collapsed .console-drawer {
+  right: 42px;
+}
+@media (max-width: 900px) and (min-width: 721px) {
+  .studio {
+    --layout-center: minmax(260px, 1fr);
+  }
+  .studio.is-viewport-collapsed {
+    --layout-center: 32px;
+  }
+}
+@media (max-width: 720px) {
+  .workspace-bar {
+    column-gap: 8px;
+  }
+  .pane-layout-actions {
+    gap: 3px;
+  }
+  .pane-layout-actions button {
+    padding: 3px 5px;
+  }
+  .pane-layout-actions span {
+    display: none;
+  }
+  .studio {
+    --layout-left: 145px;
+    --layout-center: minmax(235px, 1fr);
+    --layout-top: minmax(440px, 1fr);
+    --layout-timeline: 235px;
+    --layout-inspector: 320px;
+    grid-template-columns: var(--layout-left) 4px var(--layout-center);
+    grid-template-rows: var(--layout-top) 4px var(--layout-timeline) var(
+        --layout-inspector
+      );
+  }
+  .studio.is-left-collapsed {
+    --layout-left: 32px;
+  }
+  .studio.is-viewport-collapsed {
+    --layout-center: 32px;
+    --layout-left: minmax(145px, 1fr);
+  }
+  .studio.is-left-collapsed.is-viewport-collapsed {
+    --layout-left: 32px;
+    --layout-center: minmax(32px, 1fr);
+    --layout-top: 32px;
+  }
+  .studio.is-inspector-collapsed {
+    --layout-inspector: 36px;
+  }
+  .studio.is-timeline-collapsed {
+    --layout-timeline: 43px;
+  }
+  .studio.is-left-collapsed.is-inspector-collapsed.is-viewport-collapsed {
+    --layout-timeline: minmax(235px, 1fr);
+  }
+  .studio.is-left-collapsed.is-viewport-collapsed .pane-restore {
+    padding: 0;
+    justify-content: center;
+  }
+  .studio.is-left-collapsed.is-viewport-collapsed .pane-restore .rail-label {
+    display: none;
+  }
+  #pane-inspector > .pane-restore {
+    flex-direction: row;
+    justify-content: center;
+    padding: 0;
+    gap: 8px;
+  }
+  #pane-inspector > .pane-restore .rail-label {
+    writing-mode: horizontal-tb;
+    display: inline;
+  }
+  .pane-heading-actions {
+    gap: 0;
+  }
+  .pane-heading-actions .pane-collapse {
+    width: 20px;
+    min-width: 20px;
+  }
+  .viewport-pane-actions > .pane-collapse {
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+  }
+  .layout-left-collapsed .console-drawer,
+  .layout-inspector-collapsed .console-drawer {
+    left: 8px;
+    right: 8px;
+  }
+}

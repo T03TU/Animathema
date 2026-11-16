@@ -1,0 +1,109 @@
+/* Dimension and navigation UI is scoped to the existing stage. */
+.axis-gizmo {
+  display: block;
+  top: 52px;
+  bottom: auto;
+  right: 12px;
+  width: 90px;
+  height: 90px;
+  pointer-events: auto;
+  background: radial-gradient(circle, #29243366 0 34%, transparent 64%);
+  border-radius: 50%;
+}
+.axis-gizmo::before,
+.axis-gizmo::after {
+  display: none;
+}
+.axis-gizmo svg {
+  width: 90px;
+  height: 90px;
+  pointer-events: none;
+}
+.axis-gizmo button {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  background: #252331;
+  border: 1px solid var(--axis-color);
+  color: var(--axis-color);
+  font:
+    8px ui-monospace,
+    monospace;
+  cursor: pointer;
+}
+.axis-gizmo button.rear {
+  background: #19171f;
+  opacity: 0.7;
+}
+.axis-gizmo button:hover,
+.axis-gizmo button:focus-visible {
+  background: #41374e;
+  opacity: 1;
+  outline: 1px solid var(--axis-color);
+}
+#view-preset {
+  background: #191820;
+  border: 1px solid var(--border);
+  padding: 3px 4px;
+  max-width: 90px;
+  font-size: 9px;
+}
+#camera-hud {
+  letter-spacing: 0;
+  color: #9b8fae;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.studio:not(.dimension-3d) .position-inputs {
+  grid-template-columns: repeat(2, 1fr);
+}
+#stage {
+  touch-action: none;
+}
+@media (max-width: 720px) {
+  .viewport-toolbar {
+    padding: 0 5px;
+    gap: 3px;
+  }
+  .viewport-toolbar .tool-group {
+    gap: 1px;
+  }
+  .viewport-toolbar .tool {
+    width: 22px;
+  }
+  .axis-gizmo {
+    display: block;
+    width: 90px;
+    height: 90px;
+    top: 32px;
+    right: 0;
+    transform: scale(0.78);
+    transform-origin: top right;
+  }
+  #camera-hud {
+    display: inline;
+    font-size: 7px;
+  }
+  #view-preset {
+    max-width: 58px;
+    font-size: 8px;
+    padding: 3px 1px;
+  }
+  #view-3d {
+    padding: 5px 4px;
+  }
+  #fit-view {
+    font-size: 0;
+    padding: 5px 4px;
+  }
+  #fit-view::before {
+    content: "Reset";
+    font-size: 8px;
+  }
+  #fit-view span {
+    font-size: 8px;
+  }
+}

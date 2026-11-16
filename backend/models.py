@@ -19,6 +19,7 @@ class Mobject(Model):
     opacity: float = Field(default=1, ge=0, le=1)
     visible: bool = True
     locked: bool = False
+    fixed_in_frame: bool = False
     params: dict = Field(default_factory=dict)
 
     @field_validator('position')
@@ -80,6 +81,17 @@ class Camera(Model):
     theta: float = Field(default=-90, ge=-360, le=360)
     zoom: float = Field(default=1, ge=.1, le=5)
     auto_3d: bool = True
+    dimension: Literal['2D', '3D'] | None = None
+    projection: Literal['perspective', 'orthographic'] = 'perspective'
+    frame_center: tuple[float, float, float] = (0, 0, 0)
+    focal_distance: float = Field(default=20, ge=1, le=1000)
+
+    @field_validator('frame_center')
+    @classmethod
+    def finite_center(cls, value):
+        if any(not math.isfinite(n) or abs(n) > 10000 for n in value):
+            raise ValueError('Camera center must be finite and within ±10000.')
+        return value
 
 
 class Project(Model):

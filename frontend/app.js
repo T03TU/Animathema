@@ -148,6 +148,7 @@ function clipDuration(c) {
 }
 function changed(full = false) {
   state.project.camera ??= { phi: 0, theta: -90, zoom: 1, auto_3d: true };
+  window.StageViewport?.sync();
   state.dirty = true;
   $("save-state").textContent = "Unsaved changes";
   $("project-name").innerHTML = esc(state.project.name) + " <span>⌄</span>";
@@ -403,6 +404,7 @@ function renderProperties() {
     return;
   }
   if (state.selectionType === "camera") {
+    const viewCamera = window.StageViewport?.cameraState() || o;
     html =
       '<div class="selection-summary"><span class="object-icon">◉</span><div><h3>Scene camera</h3><p>Manim / 3D camera</p></div></div>' +
       section(
@@ -413,22 +415,22 @@ function renderProperties() {
         ) +
           field(
             "Phi / degrees",
-            input("scene.camera.phi", o.phi, "number", 'min="0" max="180"'),
+            input("scene.camera.phi", viewCamera.phi, "number", `min="0" max="180" ${state.is3d ? "" : "disabled"}`),
           ) +
           field(
             "Theta / degrees",
             input(
               "scene.camera.theta",
-              o.theta,
+              viewCamera.theta,
               "number",
-              'min="-360" max="360"',
+              `min="-360" max="360" ${state.is3d ? "" : "disabled"}`,
             ),
           ) +
           field(
             "Zoom",
             input("scene.camera.zoom", o.zoom, "number", 'min="0.1" max="5"'),
           ) +
-          '<p class="inspector-note">Auto 3D uses an oblique camera for surfaces and 3D axes. Disable it to use your angles. Render for exact camera framing.</p>',
+          '<p class="inspector-note">The 2D/3D toggle controls the stage and render camera. Orbit with MMB or Alt+drag; pan with Shift+MMB or RMB. Auto 3D keeps legacy projects compatible.</p>',
       ) +
       section(
         "Camera motion",
@@ -449,7 +451,7 @@ function renderProperties() {
   if (type === "object") {
     html += section(
       "Transform",
-      `<div class="${o.locked ? "prop-locked" : ""}"><label class="field">Position</label><div class="position-inputs">${["X", "Y", "Z"].map((axis, i) => `<label class="axis-input"><span>${axis}</span>${input("position." + i, o.position[i], "number", 'aria-label="Position ' + axis + '"')}</label>`).join("")}</div>${field("Scale", input("scale", o.scale, "number", 'min="0.01" max="100"'))}</div>`,
+      `<div class="${o.locked ? "prop-locked" : ""}"><label class="field">Position</label><div class="position-inputs">${(state.is3d ? ["X", "Y", "Z"] : ["X", "Y"]).map((axis, i) => `<label class="axis-input" data-axis="${axis}"><span>${axis}</span>${input("position." + i, o.position[i], "number", 'aria-label="Position ' + axis + '"')}</label>`).join("")}</div>${field("Scale", input("scale", o.scale, "number", 'min="0.01" max="100"'))}</div>`,
     );
     html += section(
       "Appearance",
@@ -471,6 +473,7 @@ function renderProperties() {
       ...objectPreset(o.kind)?.params,
       ...o.params,
     })) {
+      if (!state.is3d && ["z", "z_expression", "z_min", "z_max"].includes(key)) continue;
       const label = key
         .replace(/_/g, " ")
         .replace(/^\w/, (x) => x.toUpperCase());
@@ -497,6 +500,7 @@ function renderProperties() {
         true,
       );
     if (params) html += section("Object settings", params);
+    html += section("Viewport overlay", field("Fixed in frame", `<input data-field="fixed_in_frame" type="checkbox" ${o.fixed_in_frame ? "checked" : ""}>`));
     const anims = state.project.animations.filter((a) => a.object_id === o.id);
     html += section(
       "Motion",
@@ -704,6 +708,15 @@ function setProperty(element) {
   const previous = copy(state.project);
   snapshot();
   data[name] = value;
+  if (key.startsWith("scene.camera.")) {
+    const camera = state.project.camera;
+    if (key === "scene.camera.auto_3d") camera.dimension = null;
+    if (key === "scene.camera.phi" || key === "scene.camera.theta") {
+      camera.auto_3d = false;
+      camera.dimension = camera.phi === 0 && !state.is3d ? "2D" : "3D";
+      camera.projection = "perspective";
+    }
+  }
   if (state.selectionType === "clip" && !key.startsWith("scene.")) {
     if (
       o.speed < 0.25 ||
@@ -1048,11 +1061,12 @@ function canvasContext(id) {
   return { ctx, w: rect.width, h: rect.height };
 }
 function stageFrame(w, h) {
-  const fw = Math.min(w - 65, ((h - 66) * 16) / 9) * state.zoom,
+  const fw = Math.max(1, Math.min(w - 65, ((h - 66) * 16) / 9)),
     fh = (fw * 9) / 16;
-  return { x: (w - fw) / 2, y: (h - fh) / 2, w: fw, h: fh, u: fh / 8 };
+  return { x: (w - fw) / 2, y: (h - fh) / 2, w: fw, h: fh, u: fh / 8 * state.zoom, baseUnit: fh / 8 };
 }
 function projectPoint(x, y, z = 0) {
+  if (window.StageViewport) return window.StageViewport.project(x, y, z).slice(0, 2);
   if (state.is3d)
     return [
       frame.x + frame.w / 2 + (x * 0.86 - z * 0.5) * frame.u,
@@ -1064,6 +1078,7 @@ function projectPoint(x, y, z = 0) {
   ];
 }
 function worldAt(event) {
+  if (window.StageViewport) return window.StageViewport.worldAt(event);
   const r = $("viewport").getBoundingClientRect();
   return [
     (event.clientX - r.left - frame.x - frame.w / 2) / frame.u,
@@ -1073,6 +1088,7 @@ function worldAt(event) {
 }
 function draw() {
   if (!state.project) return;
+  window.StageViewport?.sync();
   if (state.mode === "render") {
     drawCrop();
     return;
@@ -1080,6 +1096,7 @@ function draw() {
   const { ctx, w, h } = canvasContext("stage");
   if (w < 1 || h < 1) return;
   frame = stageFrame(w, h);
+  window.StageViewport?.begin(frame, hitBoxes);
   ctx.fillStyle = "#00000035";
   ctx.fillRect(frame.x + 5, frame.y + 7, frame.w, frame.h);
   ctx.fillStyle = state.project.background;
@@ -1088,7 +1105,8 @@ function draw() {
   ctx.beginPath();
   ctx.rect(frame.x, frame.y, frame.w, frame.h);
   ctx.clip();
-  if (state.grid) {
+  if (window.StageViewport) window.StageViewport.grid(ctx);
+  else if (state.grid) {
     ctx.strokeStyle = "#ffffff06";
     ctx.lineWidth = 1;
     for (let i = -7; i <= 7; i++) {
@@ -1099,7 +1117,8 @@ function draw() {
     }
   }
   hitBoxes.clear();
-  for (const object of state.project.objects) {
+  if (state.is3d && window.StageViewport) window.StageViewport.drawSpatial(ctx);
+  else for (const object of [...state.project.objects.filter(o => !o.fixed_in_frame), ...state.project.objects.filter(o => o.fixed_in_frame)]) {
     if (!object.visible) continue;
     try {
       drawObject(ctx, object);
@@ -1149,10 +1168,10 @@ function draw() {
         ctx.fillStyle = "#d9c9fc";
         ctx.fillRect(x - 2, y - 2, 4, 4);
       }
-    const p = projectPoint(...selectedObject.position);
+    const p = window.StageViewport ? window.StageViewport.project(...selectedObject.position, selectedObject.fixed_in_frame) : projectPoint(...selectedObject.position);
     ctx.fillStyle = "#bda1fa";
     ctx.beginPath();
-    ctx.arc(...p, 2.5, 0, Math.PI * 2);
+    ctx.arc(p[0], p[1], 2.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -1165,6 +1184,10 @@ function line(ctx, a, b) {
   ctx.stroke();
 }
 function drawObject(ctx, o) {
+  if (window.StageViewport && (o.fixed_in_frame || ["Surface", "Sphere", "Cube", "ParametricFunction"].includes(o.kind))) {
+    window.StageViewport.drawObject(ctx, o);
+    return;
+  }
   const [ox, oy, oz] = o.position,
     p = o.params,
     s = o.scale,
@@ -1259,7 +1282,6 @@ function drawObject(ctx, o) {
       }
     }
     for (let y = -2; y <= 2; y++) line(ctx, [-3, y * u], [3, y * u]);
-    if (k === "ThreeDAxes") line(ctx, [0, 0], [-2 * u, 1.5 * u]);
   } else if (k === "FunctionGraph") {
     const min = Number(p.x_min ?? -5),
       max = Number(p.x_max ?? 5);
@@ -1442,15 +1464,18 @@ function drawObject(ctx, o) {
   ctx.restore();
 }
 function stagePointer(event) {
+  if (window.StageViewport?.navigate(event)) return;
   if (state.mode !== "stage" || event.button !== 0) return;
   const r = $("viewport").getBoundingClientRect(),
     x = event.clientX - r.left,
     y = event.clientY - r.top;
   let hit;
+  if (state.is3d && window.StageViewport) hit = window.StageViewport.hitTest(x, y);
   const candidates = [...state.project.objects]
     .reverse()
     .filter((o) => o.visible && !o.locked);
   for (const o of candidates) {
+    if (state.is3d && window.StageViewport) break;
     const b = hitBoxes.get(o.id);
     if (
       b &&
@@ -1476,11 +1501,8 @@ function stagePointer(event) {
       snapshot();
       moved = true;
     }
-    hit.position = [
-      round(origin[0] + (e.clientX - startX) / frame.u),
-      round(origin[1] - (e.clientY - startY) / frame.u),
-      origin[2],
-    ];
+    const delta = window.StageViewport?.screenDelta(e.clientX - startX, e.clientY - startY, origin, hit.fixed_in_frame);
+    hit.position = delta ? origin.map((v, i) => round(v + delta[i])) : [round(origin[0] + (e.clientX-startX)/frame.u), round(origin[1] - (e.clientY-startY)/frame.u), origin[2]];
     if (e.shiftKey)
       hit.position = hit.position.map((v) => Math.round(v * 2) / 2);
     renderProperties();
@@ -1508,6 +1530,7 @@ async function metadata(source) {
 function setMode(mode) {
   window.CodeWorkspace?.leave();
   state.mode = mode;
+  window.StageViewport?.sync();
   document
     .querySelectorAll("[data-mode]")
     .forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
@@ -2302,6 +2325,7 @@ function bindEvents() {
     "wheel",
     (e) => {
       if (state.mode !== "stage") return;
+      if (window.StageViewport) { window.StageViewport.zoom(e); return; }
       e.preventDefault();
       state.zoom = clamp(state.zoom * (e.deltaY > 0 ? 0.93 : 1.07), 0.4, 2.5);
       draw();
@@ -2319,6 +2343,7 @@ function bindEvents() {
     draw();
   };
   $("view-3d").onclick = () => {
+    if (window.StageViewport) { window.StageViewport.setDimension(!state.is3d); return; }
     state.is3d = !state.is3d;
     $("view-3d").textContent = state.is3d ? "3D" : "2D";
     $("view-3d").classList.toggle("active", state.is3d);
@@ -2328,6 +2353,7 @@ function bindEvents() {
     draw();
   };
   $("fit-view").onclick = () => {
+    if (window.StageViewport) { window.StageViewport.preset("reset"); return; }
     state.zoom = 1;
     state.simulate = false;
     draw();
@@ -2565,6 +2591,8 @@ async function init() {
       api("presets"),
     ]);
     state.project.camera ??= { phi: 0, theta: -90, zoom: 1, auto_3d: true };
+    window.StageViewport?.attach({ state, draw, changed, snapshot, queueCompile, renderProperties, mathExpression });
+    window.StudioPanes?.init({ refresh: () => { draw(); renderTimeline(); } });
     state.selection =
       state.project.objects.find((o) => o.kind === "FunctionGraph")?.id ||
       state.project.objects[0]?.id;

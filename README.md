@@ -41,6 +41,29 @@ Primary references: [Manim installation](https://docs.manim.community/en/stable/
 
 The **Code** tab shows syntax-highlighted standalone Python. Download it as `scene.py`, or edit and apply a manual override defining `AnimathemaScene`. Reset the override to resume visual code generation. Manual code executes as local Python when rendering, so only run code you trust. Visual state remains stored alongside the override; arbitrary Python is not reverse-parsed into objects.
 
+## Collapsible panes & focus mode
+
+Use the small chevrons in pane headers to collapse the library/scene sidebar, properties/code inspector, viewport, or timeline. Side panes become narrow restore rails; the timeline keeps its playback toolbar available. Click the rail or chevron to expand a pane again. At least one main pane stays open, so every layout remains usable.
+
+The preset library and scene collection can also fold individually, giving their vertical space to the other section. Click a Properties section heading to fold its controls; values and selections are preserved, including when selecting another object.
+
+**⛶ Focus** in the workspace bar hides surrounding panes and expands the viewport. Click **Exit focus** to restore the preceding layout. **↺ Expand all panes** reopens every pane and inspector section. The `/` search shortcut reveals the preset library when necessary.
+
+Collapse and fold preferences are remembered in this browser, independently of project JSON. Existing resize widths survive collapse/restore during the session; layouts also work on narrow screens. Hidden panes retain their contents, code drafts, and running render jobs.
+
+## 2D/3D stage navigation
+
+The dimension toggle controls the stage grid, object projection, axis gizmo, available coordinates, and generated Manim camera together.
+
+- **2D:** flat XY orthographic view, with coral X and green Y axes. Z controls and Z gizmo endpoints are hidden; stored object depth is preserved for switching back. Rotation is locked to `phi=0°`, `theta=-90°`. Middle/right drag pans, and the wheel zooms.
+- **3D:** perspective projection through a Manim-compatible spherical camera, with an XY ground grid, X/Y/Z axes, and depth-sorted geometry. Middle drag or Alt+left drag orbits. Left drag on empty canvas also orbits. Shift+middle drag or right drag pans. The wheel changes zoom. Dragging an object moves it in the camera's view plane; Shift snaps to half units.
+- **Navigation gizmo:** the top-right indicator shows +X/+Y in 2D and all six positive/negative endpoints in 3D. Click an endpoint to smoothly align to an orthographic axis view. Endpoint hit areas remain separate even when projected axes overlap.
+- **View presets:** choose Top, Front, Side, or Isometric 3D, or click Reset View. While the viewport has keyboard focus, Numpad 1/3/7 select Front/Side/Top and Home resets the view. The HUD shows live Manim `phi`, `theta`, and zoom.
+- **Camera persistence:** navigation is saved with the project and participates in undo/redo. Generated visual source uses the saved dimension, angles, zoom, projection, and orbit target. Standard Axes become ThreeDAxes in 3D; NumberPlane remains an XY grid. In 2D, coordinate axes and depth coordinates render flat. World geometry is centered on the saved orbit target while fixed overlays remain in screen space. Existing projects without dimension metadata keep their legacy automatic-camera behavior until a dimension/navigation choice is saved.
+- **Fixed overlays:** select an object and enable Properties → Viewport overlay → Fixed in frame. The stage pins it to screen coordinates and the compiler registers it with `add_fixed_in_frame_mobjects`. The demo's title and subtitle are pinned. Cube and Sphere presets are also available on the Geometry shelf.
+
+Camera changes update generated visual code. A manually authored Python override remains independent and is rendered exactly as written.
+
 ## Code workspace & direct rendering
 
 Click **</> Code** beside Stage preview and Render monitor to open the full-size Python editor. It includes line numbers, live Python highlighting, Tab/Shift+Tab indentation, Copy Code, and Download .py, with no CDN or build dependencies.
@@ -65,7 +88,7 @@ The existing endpoints and right-hand Code inspector remain available. New API e
 
 ## Preview scope
 
-The canvas is an interactive **schematic layout and motion preview**. It approximates text, LaTeX, curves, paths, and 3D projection; the 3D button changes the layout projection. Use a Manim render for exact typography, complex transforms, camera motion, and production geometry. The monitor plays source footage at the clip speed, with a crop overlay; the crop and final output framing are applied during export. A single video track is supported, with gaps and sequential clips, rather than compositing overlapping footage.
+The canvas is an interactive **layout and motion preview** using Manim's camera rotation and perspective convention. Text, LaTeX, curves, paths, animation interpolation, and tessellated 3D geometry remain approximations. Use a Manim render for exact typography, complex transforms, animated camera moves, and production geometry. The monitor plays source footage at the clip speed, with a crop overlay; the crop and final output framing are applied during export. A single video track is supported, with gaps and sequential clips, rather than compositing overlapping footage.
 
 Three visual animation lanes are provided; their labels organize blocks and do not change Manim's absolute timing. Same-object animations must run sequentially, even on different lanes. ReplacementTransform updates subsequent references to the replacement object. An AmbientRotation block rotates the camera by its configured angle over its configured duration; it does not continue beyond the block.
 
@@ -115,3 +138,7 @@ workspace/                  Local projects, scripts, videos, exports
 `python -m tests.verify_media` verifies real rendering, exact object appearance timing, editing, audio retiming, export, and camera animation in an isolated temporary workspace. `python -m tests.verify_browser` launches an isolated server with a disposable temporary workspace and verifies the interactive browser workflow without touching your active project. It uses installed Chrome, `ANIMATHEMA_CHROME`, or Playwright Chromium (`python -m playwright install chromium`). Screenshots are written to your system temporary directory.
 
 `python -m tests.verify_code_workspace` uses an isolated server/workspace to verify visual synchronization, protection and persistence of custom drafts, scene selection, syntax diagnostics, clipboard/download, real draft and production code renders, runtime failures, and the existing NLE export pipeline. It leaves your active project untouched.
+
+`python -m tests.verify_dimensions` verifies 2D/3D indicators, orbit/pan/zoom gestures, all six axis snaps, camera presets, 3D object dragging, preserved depth, saved camera state, and the projection matrix against Manim. It also renders a real 3D scene and checks that the fixed HUD stays pinned. All work uses a disposable temporary workspace.
+
+`python -m tests.verify_panes` checks actual space reclamation, restoring/persisting layouts, nested pane and Properties folding, keyboard activation, focus and timeline-only layouts, resize preservation, code drafts, 3D navigation, and narrow-screen layouts in an isolated browser workspace.
