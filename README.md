@@ -1,0 +1,93 @@
+# Animathema
+
+A local visual studio for **mathematics in motion**. Compose Manim scenes, sequence animations, render footage, and edit an MP4 without a frontend build or a hosted service.
+
+## Run
+
+Use Python 3.11 or newer. From this directory:
+
+```bash
+python -m venv .venv
+# Linux / macOS
+source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python main.py
+```
+
+On systems where Python is named `python3`, use that name to create the environment. In this checkout an environment is already prepared; launch directly with `.venv/bin/python main.py` on Linux/macOS.
+
+The launcher opens **http://127.0.0.1:8000** in your browser. Stop it with Ctrl+C. Use `python main.py --no-browser --port 8001` for a different port or to suppress the browser. The application binds to loopback only. Use `--workspace /path/to/project-data` to choose a separate project and media directory.
+
+### System dependencies
+
+Manim needs Cairo, Pango, and FFmpeg. Install these before installing Python requirements. For example:
+
+- **Ubuntu/Debian:** `sudo apt install build-essential python3-dev pkg-config libcairo2-dev libpango1.0-dev ffmpeg`
+- **macOS (Homebrew):** `brew install cairo pango pkg-config ffmpeg`
+- **Windows:** install Python and FFmpeg, add FFmpeg's `bin` directory to PATH, then follow Manim's platform installation guide if a native dependency is missing.
+
+**LaTeX is optional for the included demo, Text, geometry, and plots.** MathTex and Matrix require a TeX distribution with `latex` and `dvisvgm` on PATH. Install TeX Live or MiKTeX; on Ubuntu, `texlive-latex-extra texlive-fonts-recommended texlive-science dvisvgm` supplies common packages. Restart the app after changing PATH. The engine status button shows dependency checks and actionable guidance.
+
+Primary references: [Manim installation](https://docs.manim.community/en/stable/installation.html), [Manim render settings](https://docs.manim.community/en/stable/guides/configuration.html), [FFmpeg filter documentation](https://ffmpeg.org/ffmpeg-filters.html).
+
+## Studio workflow
+
+1. **Compose.** The preloaded “A little closer to sine” project compares sine with first- and third-order Taylor approximations. Search or filter the preset shelf. Click a card or drag it onto the stage. Select objects through the canvas or scene collection. Drag to position; hold Shift to snap to half units. Edit position, scale, color, expressions, text, and geometry on the right. Outliner visibility, locks, drag ordering, and layer buttons control composition.
+2. **Animate.** Switch the shelf to Animations. Select a Mobject and click or drop a transition onto the stage or timeline. For transforms and paths, choose the target in Properties. Drag blocks to change start time or pull their edges to change duration. Properties also expose easing, timing, tracks, and rotation angle. Independent objects can animate concurrently; competing animations on the same object are rejected with an explanation. Wait blocks extend the scene. Click Camera in the outliner footer to edit angles, zoom, and automatic 3D framing. Expand object rows to select their animations. Camera blocks rotate the 3D camera; scenes containing ThreeDAxes or Surface start with an oblique camera.
+3. **Render.** Fast draft uses Manim `-ql` (480p15); Production uses `-qh` (1080p60). Jobs run asynchronously, with console output, progress, cancellation, and isolated output directories. Successful renders are automatically added to the video track. Earlier renders are available in the Render library, including after a restart.
+4. **Edit.** Select a video block, scrub the ruler, and split at the playhead with **S** or **Ctrl+B**. Set a speed between 0.25× and 4×. Drag clip edges in Trim mode or choose Rate stretch. Trim cannot extend past source bounds. Crop in Properties or use the monitor's crop frame; drag a corner to resize or drag inside to move. Aspect presets offer landscape, portrait, and square framing. Crop values use normalized source coordinates, independent of output resolution.
+5. **Export.** Choose output resolution and frame rate. FFmpeg applies cuts, speed, and crops; scales footage to fit the output; preserves and retimes source audio; fills timeline gaps with black/silence; and concatenates the clips into H.264/AAC MP4. Clips on the video track must not overlap. The completed job offers a download.
+
+The **Code** tab shows syntax-highlighted standalone Python. Download it as `scene.py`, or edit and apply a manual override defining `AnimathemaScene`. Reset the override to resume visual code generation. Manual code executes as local Python when rendering, so only run code you trust. Visual state remains stored alongside the override; arbitrary Python is not reverse-parsed into objects.
+
+## Preview scope
+
+The canvas is an interactive **schematic layout and motion preview**. It approximates text, LaTeX, curves, paths, and 3D projection; the 3D button changes the layout projection. Use a Manim render for exact typography, complex transforms, camera motion, and production geometry. The monitor plays source footage at the clip speed, with a crop overlay; the crop and final output framing are applied during export. A single video track is supported, with gaps and sequential clips, rather than compositing overlapping footage.
+
+Three visual animation lanes are provided; their labels organize blocks and do not change Manim's absolute timing. Same-object animations must run sequentially, even on different lanes. ReplacementTransform updates subsequent references to the replacement object. An AmbientRotation block rotates the camera by its configured angle over its configured duration; it does not continue beyond the block.
+
+## Project files
+
+- Changes auto-save to `workspace/project.json`; Ctrl+S saves immediately.
+- Use the **⋯** project menu to download/open JSON, reload the demo, or start an empty project. Loading a project replaces the active scene; undo can restore it.
+- Renders, generated Python, and exports stay under `workspace/renders/` and `workspace/exports/`. These are intentionally excluded from version control. Keep the referenced media alongside a project JSON when moving it to another checkout.
+- Undo/redo keeps the last 60 editing steps during the current browser session. Jobs and logs are held for the current server session; their output media persists.
+- Backend scene validation, restricted mathematical expressions, same-origin mutation checks, and workspace-scoped media paths protect normal visual editing. The application is intended for one trusted local user, with one active editing tab.
+
+## Shortcuts
+
+| Action | Shortcut |
+| --- | --- |
+| Play/pause | Space |
+| Save | Ctrl/⌘ S |
+| Undo / redo | Ctrl/⌘ Z / Ctrl/⌘ Shift Z |
+| Split selected video | S or Ctrl/⌘ B |
+| Step one frame | Left / Right |
+| Delete selection | Delete / Backspace |
+| Search presets | / |
+| Shortcut help | ? |
+
+## Development & verification
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+node --check frontend/app.js  # optional syntax check; Node is not needed to run the app
+```
+
+The regression suite checks project validation, every preset's generated syntax, expression restrictions, timeline conflict handling, split/retime math, crop bounds, media confinement, API behavior, and cross-origin protection. Additional integration checks render the actual demo and export split, retimed, cropped footage with a gap. Browser verification covers the studio and editing controls using installed Chrome.
+
+```text
+main.py                     Python launcher, local server, browser opening
+backend/models.py           Validated project, object, animation, clip schemas
+backend/presets.py          Preset catalog, LaTeX templates, demo scene
+backend/scene_compiler.py   JSON → standalone Manim Python
+backend/render_engine.py    Async jobs, subprocesses, diagnostics, cancellation
+backend/video_editor.py     FFprobe metadata, split logic, FFmpeg export
+backend/app.py              FastAPI routes, persistence, static UI
+frontend/                   HTML, CSS, vanilla JavaScript studio
+workspace/                  Local projects, scripts, videos, exports
+```
+
+`python -m tests.verify_media` verifies real rendering, exact object appearance timing, editing, audio retiming, export, and camera animation in an isolated temporary workspace. `python -m tests.verify_browser` launches an isolated server with a disposable temporary workspace and verifies the interactive browser workflow without touching your active project. It uses installed Chrome, `ANIMATHEMA_CHROME`, or Playwright Chromium (`python -m playwright install chromium`). Screenshots are written to your system temporary directory.

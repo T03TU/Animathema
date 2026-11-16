@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#111217" />
+    <meta
+      name="description"
+      content="Animathema — a local visual studio for mathematics in motion."
+    />
+    <title>Animathema · Visual mathematics studio</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23a78bfa'/%3E%3Cpath d='M13 47 29 15h6l16 32M20 35h24' stroke='%23111217' stroke-width='5' fill='none'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <a class="brand" href="/" aria-label="Animathema home"
+        ><span class="brand-mark">A<span>·</span></span
+        ><span>animathema<span class="brand-beta">STUDIO</span></span></a
+      >
+      <div class="header-divider"></div>
+      <button id="project-name" class="project-name" title="Rename project">
+        A little closer to sine <span>⌄</span></button
+      ><span id="save-state" class="save-state">Local project</span>
+      <div class="header-actions">
+        <button
+          id="undo"
+          class="icon-button"
+          title="Undo · Ctrl+Z"
+          aria-label="Undo"
+        >
+          ↶</button
+        ><button
+          id="redo"
+          class="icon-button"
+          title="Redo · Ctrl+Shift+Z"
+          aria-label="Redo"
+        >
+          ↷</button
+        ><span class="header-divider"></span
+        ><button id="save-project" class="quiet-button" title="Save · Ctrl+S">
+          Save project</button
+        ><button
+          id="project-menu"
+          class="icon-button"
+          title="Project files"
+          aria-label="Project files"
+        >
+          ⋯</button
+        ><button id="export-open" class="primary-button">
+          ↗ <span>Export video</span>
+        </button>
+      </div>
+    </header>
+    <nav class="workspace-bar" aria-label="Workspace">
+      <div class="workspace-label">
+        <span class="purple-dot"></span> VISUAL WORKSPACE
+      </div>
+      <div class="workflow">
+        <span class="active">01 <b>Compose</b></span
+        ><i>—</i><span>02 <b>Animate</b></span
+        ><i>—</i><span>03 <b>Render & edit</b></span>
+      </div>
+      <button id="system-status" class="system-status">
+        <span class="status-dot"></span> Checking engine
+      </button>
+    </nav>
+    <main id="studio" class="studio">
+      <aside class="left-panel panel">
+        <section class="library">
+          <div class="panel-heading">
+            <h2>Preset library</h2>
+            <span class="subtle">↗</span>
+          </div>
+          <div class="search-box">
+            <span>⌕</span
+            ><input
+              id="preset-search"
+              type="search"
+              placeholder="Find an object or animation…"
+              aria-label="Search presets"
+            /><kbd>/</kbd>
+          </div>
+          <div class="shelf-tabs">
+            <button data-library="objects" class="active">Objects</button
+            ><button data-library="animations">Animations</button>
+          </div>
+          <div id="category-filters" class="category-filters"></div>
+          <div id="preset-cards" class="preset-cards"></div>
+          <p class="shelf-hint">Drag to stage · Click to add</p>
+        </section>
+        <div
+          id="outliner-resizer"
+          class="horizontal-resizer"
+          role="separator"
+          aria-label="Resize outliner"
+        ></div>
+        <section class="outliner-section">
+          <div class="panel-heading">
+            <h2>
+              Scene collection <span id="object-count" class="count">6</span>
+            </h2>
+            <button
+              id="add-text"
+              class="icon-button small"
+              title="Add text"
+              aria-label="Add text"
+            >
+              +
+            </button>
+          </div>
+          <div class="outliner-root">
+            <span>⌄</span><span>▱</span>
+            <span id="scene-label">Taylor series</span>
+          </div>
+          <div id="outliner" class="outliner"></div>
+          <div class="outliner-footer">
+            <button id="select-camera" title="Camera properties">
+              ◉ Camera</button
+            ><span>1920 × 1080</span>
+          </div>
+        </section>
+      </aside>
+      <div
+        id="left-resizer"
+        class="vertical-resizer"
+        role="separator"
+        aria-label="Resize preset panel"
+      ></div>
+      <section class="viewport-panel panel">
+        <div class="viewport-heading">
+          <div class="viewport-tabs">
+            <button data-mode="stage" class="active">
+              ◇ <span>Stage preview</span></button
+            ><button data-mode="render">
+              ▷ <span>Render monitor</span
+              ><span id="render-badge" class="badge" hidden>0</span>
+            </button>
+          </div>
+          <div class="viewport-actions">
+            <button
+              id="draft-render"
+              class="draft-button"
+              title="480p · 15 fps"
+            >
+              ▶ Fast draft</button
+            ><button
+              id="production-render"
+              class="quiet-button"
+              title="1080p · 60 fps"
+            >
+              Production <span>↗</span>
+            </button>
+          </div>
+        </div>
+        <div class="viewport-toolbar">
+          <div class="tool-group">
+            <button
+              id="select-tool"
+              class="tool active"
+              title="Select / Move"
+              aria-label="Select and move"
+            >
+              ↖</button
+            ><button
+              id="grid-toggle"
+              class="tool active"
+              title="Toggle grid"
+              aria-label="Toggle grid"
+            >
+              ▦</button
+            ><button
+              id="safe-toggle"
+              class="tool"
+              title="Camera safe zones"
+              aria-label="Toggle safe zones"
+            >
+              ▣</button
+            ><button
+              id="crop-toggle"
+              class="tool"
+              title="Crop selected video clip"
+              aria-label="Crop video"
+            >
+              ⌗
+            </button>
+          </div>
+          <div class="stage-label">
+            <span class="tiny-dot"></span
+            ><span id="view-label">Scene / Layout</span>
+          </div>
+          <div class="tool-group">
+            <button id="view-3d" class="text-tool" title="Toggle 3D projection">
+              2D</button
+            ><button id="fit-view" class="text-tool" title="Fit view">
+              Fit <span>⌗</span>
+            </button>
+          </div>
+        </div>
+        <div
+          id="viewport"
+          class="viewport"
+          tabindex="0"
+          aria-label="Interactive scene viewport"
+        >
+          <video id="monitor" playsinline preload="metadata" hidden></video
+          ><canvas id="stage" aria-label="Scene layout"></canvas
+          ><canvas
+            id="overlay"
+            aria-label="Video crop controls"
+            hidden
+          ></canvas>
+          <div class="viewport-corner top-left">
+            <span id="viewport-caption">PERSPECTIVE / FRONT</span
+            ><span id="viewport-object">6 OBJECTS</span>
+          </div>
+          <div class="viewport-corner top-right">
+            <span id="resolution-label">16:9</span
+            ><span id="quality-label">1920 × 1080</span>
+          </div>
+          <div id="monitor-empty" class="monitor-empty" hidden>
+            <span>▷</span>
+            <h3>Your scene, in motion.</h3>
+            <p>Render a fast draft to preview and edit your footage.</p>
+            <button id="empty-render" class="primary-button">
+              Render fast draft
+            </button>
+          </div>
+          <div id="drop-hint" class="drop-hint" hidden>
+            Drop to bring your idea to life
+          </div>
+          <div class="axis-gizmo">
+            <span class="gizmo-y">Y</span><span class="gizmo-z">Z</span
+            ><span class="gizmo-x">X</span>
+          </div>
+        </div>
+        <div class="viewport-footer">
+          <span
+            ><span class="purple-dot"></span>
+            <span id="selection-label">Layout preview</span></span
+          ><span id="viewport-help"
+            >Drag objects to position · Scroll to zoom</span
+          ><span id="zoom-label">100%</span>
+        </div>
+      </section>
+      <div
+        id="right-resizer"
+        class="vertical-resizer"
+        role="separator"
+        aria-label="Resize properties panel"
+      ></div>
+      <aside class="right-panel panel">
+        <div class="inspector-tabs">
+          <button data-inspector="properties" class="active">
+            ☷ Properties</button
+          ><button data-inspector="code">⌘ Code</button>
+        </div>
+        <div id="properties" class="properties"></div>
+        <div id="code-panel" class="code-panel" hidden>
+          <div class="code-toolbar">
+            <span>scene.py</span
+            ><button id="edit-code" class="quiet-button">Edit</button
+            ><button
+              id="download-code"
+              class="icon-button"
+              title="Download Python"
+              aria-label="Download Python"
+            >
+              ↓
+            </button>
+          </div>
+          <div id="code-warning" class="notice" hidden>
+            Manual Python runs on your machine. Visual edits do not update a
+            code override.
+          </div>
+          <div class="code-container">
+            <pre id="code-highlight" class="code-highlight"></pre>
+            <textarea
+              id="code-editor"
+              spellcheck="false"
+              aria-label="Manim Python code"
+              hidden
+            ></textarea>
+          </div>
+          <div class="code-footer">
+            <button id="apply-code" class="primary-button" hidden>
+              Apply Python</button
+            ><button id="reset-code" class="quiet-button">
+              Regenerate from scene
+            </button>
+          </div>
+        </div>
+      </aside>
+      <div
+        id="timeline-resizer"
+        class="timeline-resizer"
+        role="separator"
+        aria-label="Resize timeline"
+      ></div>
+      <section class="timeline-panel panel">
+        <div class="timeline-toolbar">
+          <div class="timeline-title">
+            ▥
+            <h2>Timeline</h2>
+            <span class="count" id="timeline-duration">12.0s</span>
+          </div>
+          <div class="transport">
+            <button
+              id="jump-start"
+              class="icon-button"
+              title="Jump to start"
+              aria-label="Jump to start"
+            >
+              |◂</button
+            ><button
+              id="step-back"
+              class="icon-button"
+              title="Previous frame"
+              aria-label="Previous frame"
+            >
+              ‹</button
+            ><button
+              id="play"
+              class="play-button"
+              title="Play / Pause · Space"
+              aria-label="Play"
+            >
+              ▶</button
+            ><button
+              id="step-forward"
+              class="icon-button"
+              title="Next frame"
+              aria-label="Next frame"
+            >
+              ›</button
+            ><button
+              id="jump-end"
+              class="icon-button"
+              title="Jump to end"
+              aria-label="Jump to end"
+            >
+              ▸|</button
+            ><span id="timecode" class="timecode">00:00:00</span
+            ><span class="transport-divider">/</span
+            ><span id="end-timecode" class="end-timecode">00:12:00</span>
+          </div>
+          <div class="timeline-tools">
+            <button
+              id="split-clip"
+              class="text-tool"
+              title="Split video · S or Ctrl+B"
+            >
+              ✂ Split</button
+            ><select id="trim-mode" aria-label="Clip edge mode">
+              <option value="trim">Trim</option>
+              <option value="stretch">Rate stretch</option></select
+            ><button
+              id="zoom-out"
+              class="icon-button"
+              title="Zoom timeline out"
+              aria-label="Zoom timeline out"
+            >
+              −</button
+            ><input
+              id="timeline-zoom"
+              type="range"
+              min="30"
+              max="180"
+              value="68"
+              aria-label="Timeline zoom"
+            /><button
+              id="zoom-in"
+              class="icon-button"
+              title="Zoom timeline in"
+              aria-label="Zoom timeline in"
+            >
+              +
+            </button>
+          </div>
+        </div>
+        <div class="timeline-body">
+          <div class="track-labels">
+            <div class="track-label ruler-label">
+              TRACKS
+              <button
+                id="add-wait"
+                title="Add wait block"
+                aria-label="Add wait block"
+              >
+                +
+              </button>
+            </div>
+            <div class="track-label">
+              <span class="track-dot violet"></span>Structure <span>01</span>
+            </div>
+            <div class="track-label">
+              <span class="track-dot blue"></span>Typography <span>02</span>
+            </div>
+            <div class="track-label">
+              <span class="track-dot mint"></span>Animation <span>03</span>
+            </div>
+            <div class="track-label video-track-label">
+              <span class="track-dot amber"></span>Video editor <span>V1</span>
+            </div>
+          </div>
+          <div id="timeline-scroll" class="timeline-scroll">
+            <div id="timeline-content" class="timeline-content">
+              <div id="ruler" class="ruler"></div>
+              <div id="timeline-tracks"></div>
+              <div id="playhead" class="playhead"><span></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="timeline-footer">
+          <span id="timeline-hint"
+            >Drag blocks to sequence · Pull edges to adjust timing</span
+          >
+          <div>
+            <button id="media-open" class="text-tool">▱ Render library</button
+            ><button id="console-toggle" class="text-tool">
+              ⌘ Console <span id="console-count">0</span></button
+            ><span id="fps-label">30 FPS</span>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="app-footer">
+      <span
+        ><span class="status-dot"></span>
+        <span id="footer-status">Everything starts with an idea.</span></span
+      ><span
+        >MANIM COMMUNITY EDITION <span class="footer-dot">·</span> LOCAL
+        WORKSPACE <span class="footer-dot">·</span>
+        <button id="help-open">Shortcuts <kbd>?</kbd></button></span
+      >
+    </footer>
+    <section id="console-drawer" class="console-drawer" hidden>
+      <div class="console-heading">
+        <span id="job-title">Render console</span
+        ><span id="job-status">Idle</span
+        ><button id="job-cancel" class="quiet-button" hidden>Cancel job</button
+        ><button
+          id="console-close"
+          class="icon-button"
+          aria-label="Close console"
+        >
+          ×
+        </button>
+      </div>
+      <progress id="job-progress" max="100" value="0"></progress>
+      <pre id="console-output">Render output will appear here.</pre>
+      <a id="job-download" class="primary-button" hidden download
+        >Download video ↓</a
+      >
+    </section>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <dialog id="modal">
+      <div class="modal-heading">
+        <h2 id="modal-title"></h2>
+        <button id="modal-close" class="icon-button" aria-label="Close dialog">
+          ×
+        </button>
+      </div>
+      <div id="modal-body"></div>
+    </dialog>
+    <input
+      id="project-file"
+      type="file"
+      accept="application/json,.json"
+      hidden
+    />
+  </body>
+</html>
