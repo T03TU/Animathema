@@ -1279,9 +1279,12 @@ kbd {
   background: #15151c;
 }
 .ruler {
+  touch-action: none;
   height: 28px;
   border-bottom: 1px solid #302936;
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 6;
   cursor: crosshair;
   background: #19181f;
   overflow: hidden;
@@ -1304,6 +1307,7 @@ kbd {
   border-color: #2e2838;
 }
 .timeline-track {
+  touch-action: none;
   height: 37px;
   border-bottom: 1px solid #28232f;
   position: relative;
@@ -1395,7 +1399,7 @@ kbd {
   width: 1px;
   background: #d3b5ff;
   pointer-events: none;
-  z-index: 5;
+  z-index: 7;
   box-shadow: 0 0 5px #a78bfa33;
 }
 .playhead > span {

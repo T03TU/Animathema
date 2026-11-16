@@ -238,12 +238,13 @@
     clearTimeout(editor.analysisTimer);
     try {
       const revision = editor.revision;
+      const project = studio().getProject();
       if (!await analyze()) return;
       if (revision !== editor.revision) { queueAnalysis(); return; }
       const job = await codeRequest("render/code", {
         code: source.value, scene_name: editor.selected, quality,
       });
-      studio().startJob(job);
+      studio().startJob(job, project);
       byId("footer-status").textContent = `Rendering ${editor.selected} from the Code workspace…`;
     } catch (error) { showDiagnostic(error); }
     finally { studio().endCodeRequest(); editor.requesting = false; updateStatus(); }

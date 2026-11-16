@@ -59,6 +59,7 @@ class Clip(Model):
     id: str = Field(pattern=r'^[a-zA-Z][a-zA-Z0-9_]{0,63}$')
     name: str = Field(max_length=200)
     source: str = Field(max_length=500)
+    render_key: str | None = Field(default=None, max_length=250)
     start: float = Field(default=0, ge=0, le=3600)
     in_point: float = Field(default=0, ge=0, le=14400)
     out_point: float = Field(gt=0, le=14400)
@@ -104,6 +105,7 @@ class Project(Model):
     objects: list[Mobject] = Field(default_factory=list, max_length=200)
     animations: list[Animation] = Field(default_factory=list, max_length=1000)
     clips: list[Clip] = Field(default_factory=list, max_length=200)
+    render_sources: dict[str, str] = Field(default_factory=dict)
     code_override: str | None = Field(default=None, max_length=200000)
 
     @model_validator(mode='after')

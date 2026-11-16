@@ -33,6 +33,8 @@ const state = {
   inspector: "properties",
   code: "",
   job: null,
+  jobProjectSession: null,
+  projectSession: 0,
   undo: [],
   redo: [],
   dirty: false,
@@ -42,9 +44,11 @@ let autosaveTimer,
   codeTimer,
   toastTimer,
   rafTime,
+  playbackFrame = null,
   compileSequence = 0,
   pendingJob = false;
 const video = $("monitor");
+const projectSessions = new WeakMap();
 
 async function api(path, options = {}) {
   const response = await fetch("/api/" + path, {
@@ -94,6 +98,7 @@ function updateHistory() {
   $("redo").disabled = !state.redo.length;
 }
 function undo(redo = false) {
+  endTimelineGesture();
   const from = redo ? state.redo : state.undo,
     to = redo ? state.undo : state.redo;
   if (!from.length) return;
@@ -133,7 +138,11 @@ function select(id, type = "object") {
   renderProperties();
   renderTimeline();
   draw();
-  if (type === "clip" && state.mode === "render") syncMonitor(true);
+  if (type === "clip" && state.mode === "render") {
+    const clip = selected();
+    if (clip && (state.time < clip.start || state.time >= clip.start + clipDuration(clip))) seek(clip.start);
+    else syncMonitor(true);
+  }
 }
 function totalDuration() {
   return Math.max(
@@ -147,7 +156,9 @@ function clipDuration(c) {
   return (c.out_point - c.in_point) / c.speed;
 }
 function changed(full = false) {
+  projectSessions.set(state.project, state.projectSession);
   state.project.camera ??= { phi: 0, theta: -90, zoom: 1, auto_3d: true };
+  state.project.render_sources ??= {};
   window.StageViewport?.sync();
   state.dirty = true;
   $("save-state").textContent = "Unsaved changes";
@@ -293,6 +304,21 @@ function addObject(kind, position = [0, 0, 0]) {
   changed(true);
   toast(kind + " added to scene.");
 }
+function animationSubjectIds(objectId) {
+  const ids = new Set([objectId]);
+  const independent = new Set(state.project.animations.filter(a => ["Create", "Write", "FadeIn"].includes(a.kind)).map(a => a.object_id));
+  let added = true;
+  while (added) {
+    added = false;
+    for (const a of state.project.animations) {
+      if (!["Transform", "ReplacementTransform"].includes(a.kind) || independent.has(a.target_id)) continue;
+      if (ids.has(a.object_id) || ids.has(a.target_id)) {
+        for (const id of [a.object_id, a.target_id]) if (!ids.has(id)) { ids.add(id); added = true; }
+      }
+    }
+  }
+  return ids;
+}
 function addAnimation(kind, start = state.time, objectId = null, track = null) {
   const obj = objectId
     ? state.project.objects.find((o) => o.id === objectId)
@@ -304,15 +330,20 @@ function addAnimation(kind, start = state.time, objectId = null, track = null) {
     return;
   }
   const targetKinds = ["Transform", "ReplacementTransform", "MoveAlongPath"];
-  const target = targetKinds.includes(kind)
+  let target = targetKinds.includes(kind)
     ? state.project.objects.find((o) => o.id !== obj?.id)
     : null;
   if (targetKinds.includes(kind) && !target) {
     toast("Add a second object to use as the target or path.", true);
     return;
   }
+  const related = animationSubjectIds(obj?.id);
+  if (["Transform", "ReplacementTransform"].includes(kind)) {
+    const previous = state.project.animations.filter(a => related.has(a.object_id) && ["Transform", "ReplacementTransform"].includes(a.kind)).sort((a,b) => a.start + a.duration - b.start - b.duration).at(-1);
+    if (previous && previous.target_id !== obj.id) target = obj;
+  }
   snapshot();
-  const same = state.project.animations.filter((a) => a.object_id === obj?.id);
+  const same = state.project.animations.filter((a) => ["MoveCamera", "AmbientRotation"].includes(kind) ? ["MoveCamera", "AmbientRotation"].includes(a.kind) : kind !== "Wait" && related.has(a.object_id));
   let at = Math.max(0, start);
   while (
     same.some(
@@ -571,7 +602,7 @@ function renderProperties() {
           dropdown(
             "target_id",
             o.target_id,
-            opts.filter((x) => x.value !== o.object_id),
+            opts.filter((x) => o.kind !== "MoveAlongPath" || x.value !== o.object_id).map(x => ({...x, label:x.label + (x.value === o.object_id ? " · original shape" : "")})),
           ),
         ),
       );
@@ -857,17 +888,20 @@ function seek(time) {
   syncMonitor(true);
 }
 function togglePlay() {
+  cancelAnimationFrame(playbackFrame);
+  playbackFrame = null;
   state.playing = !state.playing;
   state.simulate = state.playing;
   if (state.time >= totalDuration() - 0.001) state.time = 0;
   $("play").textContent = state.playing ? "Ⅱ" : "▶";
   $("play").setAttribute("aria-label", state.playing ? "Pause" : "Play");
   rafTime = null;
-  if (state.playing) requestAnimationFrame(tick);
+  if (state.playing) playbackFrame = requestAnimationFrame(tick);
   else video.pause();
   draw();
 }
 function tick(now) {
+  playbackFrame = null;
   if (!state.playing) return;
   if (rafTime !== null) state.time += Math.min(0.1, (now - rafTime) / 1000);
   rafTime = now;
@@ -878,12 +912,66 @@ function tick(now) {
   updatePlayhead();
   draw();
   syncMonitor();
-  if (state.playing) requestAnimationFrame(tick);
+  if (state.playing) playbackFrame = requestAnimationFrame(tick);
+}
+let timelineGesture = null;
+function endTimelineGesture() {
+  timelineGesture?.();
+}
+function beginTimelineGesture(event, move, finish = () => {}) {
+  endTimelineGesture();
+  const owner = $("timeline-scroll"), pointer = event.pointerId;
+  let ended = false;
+  const matches = e => e.pointerId === pointer;
+  const cleanup = reason => {
+    if (ended) return;
+    ended = true;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onEnd);
+    window.removeEventListener("pointercancel", onEnd);
+    window.removeEventListener("blur", cleanup);
+    owner.removeEventListener("lostpointercapture", onEnd);
+    document.removeEventListener("visibilitychange", onVisibility);
+    if (timelineGesture === cleanup) timelineGesture = null;
+    if (owner.hasPointerCapture(pointer)) owner.releasePointerCapture(pointer);
+    finish(reason === "up");
+  };
+  const onMove = e => {
+    if (!matches(e)) return;
+    if (!e.buttons) { cleanup(); return; }
+    move(e);
+  };
+  const onEnd = e => { if (matches(e)) cleanup(e.type === "pointerup" ? "up" : "cancel"); };
+  const onVisibility = () => { if (document.hidden) cleanup(); };
+  timelineGesture = cleanup;
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onEnd);
+  window.addEventListener("pointercancel", onEnd);
+  window.addEventListener("blur", cleanup);
+  owner.addEventListener("lostpointercapture", onEnd);
+  document.addEventListener("visibilitychange", onVisibility);
+  // The scroll container survives ruler/block DOM rebuilds during rendering.
+  try { owner.setPointerCapture(pointer); } catch { /* Synthetic/older pointer implementations still receive window cleanup. */ }
+}
+function scrubTimeline(event) {
+  if (event.button !== 0 || event.isPrimary === false) return;
+  event.preventDefault();
+  if (state.playing) togglePlay();
+  const move = e => {
+    const rect = $("timeline-content").getBoundingClientRect();
+    state.simulate = true;
+    seek((e.clientX - rect.left) / state.px);
+  };
+  beginTimelineGesture(event, move);
+  move(event);
 }
 function startBlockDrag(event) {
   const element = event.target.closest("[data-block]");
-  if (!element || event.button !== 0) return;
+  if (!element) { scrubTimeline(event); return; }
+  if (event.button !== 0 || event.isPrimary === false) return;
   event.preventDefault();
+  endTimelineGesture();
+  if (state.playing) togglePlay();
   const id = element.dataset.block,
     type = element.dataset.blockType;
   select(id, type);
@@ -946,13 +1034,14 @@ function startBlockDrag(event) {
     renderProperties();
     draw();
   };
-  const up = () => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
+  beginTimelineGesture(event, move, released => {
     if (moved) changed();
-  };
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", up, { once: true });
+    else if (!edge && released) {
+      const rect = $("timeline-content").getBoundingClientRect();
+      state.simulate = true;
+      seek((event.clientX - rect.left) / state.px);
+    }
+  });
 }
 // A small expression parser keeps imported scenes from executing JavaScript in the viewport.
 function mathExpression(source, variables = {}) {
@@ -1573,8 +1662,6 @@ function activeClip() {
 function syncMonitor(force = false) {
   if (state.mode !== "render") return;
   let clip = activeClip();
-  const picked = state.selectionType === "clip" ? selected() : null;
-  if (!clip && !state.playing && force && picked) clip = picked;
   if (!clip) {
     video.pause();
     video.style.opacity = "0";
@@ -1773,7 +1860,11 @@ async function splitClip() {
 }
 async function addMedia(item) {
   try {
+    const project = state.project;
     const info = await metadata(item.source);
+    if (state.project !== project) return null;
+    endTimelineGesture();
+    if (state.playing) togglePlay();
     snapshot();
     const start = state.project.clips.length
       ? Math.max(...state.project.clips.map((c) => c.start + clipDuration(c)))
@@ -1782,6 +1873,7 @@ async function addMedia(item) {
       id: uid("clip"),
       name: item.name || "Rendered scene",
       source: item.source,
+      render_key: null,
       start,
       in_point: 0,
       out_point: info.duration,
@@ -1796,9 +1888,59 @@ async function addMedia(item) {
     activateInspector("properties");
     setMode("render");
     toast("Footage added to the video track.");
+    return c;
   } catch (e) {
     fail(e);
+    return null;
   }
+}
+async function addRenderedMedia(item) {
+  const project = state.project;
+  project.render_sources ??= {};
+  const key = item.render_key || (item.source.startsWith("custom_renders/") ? "code:" + item.name : "visual");
+  const legacy = project.clips.findLast(c => c.name === item.name && c.source.startsWith(key === "visual" ? "renders/" : "custom_renders/"));
+  const previousSource = project.render_sources[key] || legacy?.source;
+  const migrating = !project.render_sources[key];
+  const linked = project.clips.filter(c => c.render_key === key || (migrating && previousSource && c.source === previousSource));
+  if (!linked.length) {
+    const clip = await addMedia(item);
+    if (clip && state.project === project) {
+      clip.render_key = key;
+      project.render_sources[key] = item.source;
+    }
+    return;
+  }
+  const info = await metadata(item.source);
+  const oldInfo = await metadata(previousSource).catch(() => ({duration: Math.max(...linked.map(c => c.out_point))}));
+  if (state.project !== project) return;
+  endTimelineGesture();
+  if (state.playing) togglePlay();
+  snapshot();
+  let updated = null;
+  for (const clip of linked) {
+    // Edits outside a shortened render retain their original footage, rather
+    // than being deleted or becoming zero-length clips.
+    if (clip.in_point >= info.duration - .001) { clip.render_key = null; continue; }
+    const full = clip.in_point === 0 && Math.abs(clip.out_point - oldInfo.duration) < .05;
+    let out = full ? info.duration : Math.min(clip.out_point, info.duration);
+    const next = project.clips.filter(c => c !== clip && c.start > clip.start + .001).sort((a,b) => a.start-b.start)[0];
+    if (next) out = Math.min(out, clip.in_point + (next.start-clip.start)*clip.speed);
+    if (out <= clip.in_point + .001) continue;
+    clip.source = item.source;
+    clip.render_key = key;
+    clip.out_point = out;
+    updated ??= clip;
+  }
+  project.render_sources[key] = item.source;
+  if (updated) {
+    state.selection = updated.id;
+    state.selectionType = "clip";
+    state.time = updated.start;
+  }
+  changed(true);
+  activateInspector("properties");
+  setMode("render");
+  toast(updated ? "Rendered footage updated. Existing cuts, speed and crop are preserved." : "Render saved in the library. Existing edits keep their original footage.");
 }
 function modal(title, body) {
   $("modal-title").textContent = title;
@@ -1850,7 +1992,9 @@ function showProjectMenu() {
   );
 }
 function replaceProject(project) {
+  endTimelineGesture();
   snapshot();
+  state.projectSession++;
   state.project = project;
   state.selection = project.objects[0]?.id;
   state.selectionType = "object";
@@ -1903,14 +2047,15 @@ async function renderProject(quality) {
     $("console-drawer").hidden = false;
     return;
   }
+  const project = state.project;
   pendingJob = true;
   try {
     await saveProject(false);
     const job = await api("render", {
       method: "POST",
-      body: JSON.stringify({ project: state.project, quality }),
+      body: JSON.stringify({ project, quality }),
     });
-    startJob(job);
+    startJob(job, project);
     $("footer-status").textContent =
       (quality === "draft" ? "Fast draft" : "Production render") +
       " is running locally…";
@@ -1921,8 +2066,9 @@ async function renderProject(quality) {
     pendingJob = false;
   }
 }
-function startJob(job) {
+function startJob(job, project = state.project) {
   state.job = job.id;
+  state.jobProjectSession = projectSessions.get(project);
   window.CodeWorkspace?.setBusy(true);
   $("console-drawer").hidden = false;
   $("console-output").textContent = "Starting local process…";
@@ -1936,8 +2082,10 @@ function startJob(job) {
   pollJob(job.id);
 }
 async function pollJob(id) {
+  if (state.job !== id) return;
   try {
     const job = await api("jobs/" + id);
+    if (state.job !== id) return;
     $("job-status").textContent =
       job.status +
       (job.status === "running" && job.progress
@@ -1949,17 +2097,14 @@ async function pollJob(id) {
     $("console-output").scrollTop = $("console-output").scrollHeight;
     $("console-count").textContent = job.logs.length;
     if (["completed", "failed", "cancelled"].includes(job.status)) {
-      state.job = null;
-      window.CodeWorkspace?.setBusy(false);
       $("job-cancel").hidden = true;
-      $("draft-render").disabled = false;
-      $("production-render").disabled = false;
       if (job.status === "completed") {
         if (job.kind === "render") {
-          await addMedia(job.result);
+          if (state.jobProjectSession === state.projectSession) await addRenderedMedia(job.result);
+          else toast("Render complete. Its footage is available in the Render library.");
           $("console-drawer").hidden = true;
           const count = state.project.clips.length;
-          $("render-badge").hidden = false;
+          $("render-badge").hidden = count === 0;
           $("render-badge").textContent = count;
           $("footer-status").textContent =
             "Render complete · footage is ready to edit.";
@@ -1977,11 +2122,18 @@ async function pollJob(id) {
         );
         $("footer-status").textContent = "Job failed · inspect the console.";
       }
+      state.job = null;
+      state.jobProjectSession = null;
+      window.CodeWorkspace?.setBusy(false);
+      $("draft-render").disabled = false;
+      $("production-render").disabled = false;
       return;
     }
     setTimeout(() => pollJob(id), 700);
   } catch (e) {
+    if (state.job !== id) return;
     state.job = null;
+    state.jobProjectSession = null;
     window.CodeWorkspace?.setBusy(false);
     $("draft-render").disabled = false;
     $("production-render").disabled = false;
@@ -2365,25 +2517,7 @@ function bindEvents() {
   };
   $("crop-toggle").onclick = toggleCrop;
   $("timeline-tracks").onpointerdown = startBlockDrag;
-  $("ruler").onpointerdown = (e) => {
-    e.preventDefault();
-    const move = (ev) => {
-      const rect = $("timeline-content").getBoundingClientRect();
-      seek((ev.clientX - rect.left) / state.px);
-      state.simulate = true;
-      draw();
-    };
-    move(e);
-    const up = () => window.removeEventListener("pointermove", move);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up, { once: true });
-  };
-  $("timeline-tracks").ondblclick = (e) => {
-    if (!e.target.closest("[data-block]")) {
-      const rect = $("timeline-content").getBoundingClientRect();
-      seek((e.clientX - rect.left) / state.px);
-    }
-  };
+  $("ruler").onpointerdown = scrubTimeline;
   $("play").onclick = togglePlay;
   $("jump-start").onclick = () => seek(0);
   $("jump-end").onclick = () => seek(totalDuration());
@@ -2591,6 +2725,7 @@ async function init() {
       api("presets"),
     ]);
     state.project.camera ??= { phi: 0, theta: -90, zoom: 1, auto_3d: true };
+    projectSessions.set(state.project, state.projectSession);
     window.StageViewport?.attach({ state, draw, changed, snapshot, queueCompile, renderProperties, mathExpression });
     window.StudioPanes?.init({ refresh: () => { draw(); renderTimeline(); } });
     state.selection =

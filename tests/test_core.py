@@ -15,7 +15,7 @@ def test_demo_is_standalone_and_timed():
     code = compile_scene(demo())
     ast.parse(code)
     assert 'class AnimathemaScene(ThreeDScene)' in code
-    assert 'Succession(Wait(6.2)' in code
+    assert '_TimelineSequence(Wait(6.2)' in code
     assert 'lag_ratio=0' in code
     assert 'MathTex(' not in code
 
@@ -109,8 +109,9 @@ def test_camera_and_anchored_graph_coordinates_compile():
 def test_replacement_uses_replacement_object_for_later_animation():
     p=Project(objects=[Mobject(id='a',kind='Circle',name='A'),Mobject(id='b',kind='Square',name='B')],animations=[Animation(id='replace',kind='ReplacementTransform',object_id='a',target_id='b',duration=1),Animation(id='rotate',kind='Rotate',object_id='a',start=2)])
     code=compile_scene(p)
-    assert 'ReplacementTransform(obj_a, obj_b,' in code
-    assert 'Rotate(obj_b,' in code
+    assert 'replacement_replace = template_b.copy()' in code
+    assert 'ReplacementTransform(obj_a, replacement_replace,' in code
+    assert 'Rotate(replacement_replace,' in code
 
 
 def test_project_defaults_are_returned_for_json_import():

@@ -155,7 +155,8 @@ async def render(job, project, quality, code, *, scene_name='AnimathemaScene', c
     from .video_editor import probe
     info = await probe(path)
     source = path.relative_to(WORKSPACE).as_posix()
-    result = {'source':source,'url':'/media/'+source,'name':project.name,**info}
+    result = {'source':source,'url':'/media/'+source,'name':project.name,
+              'render_key':f'code:{scene_name}' if custom else 'visual',**info}
     if custom:
         result.update(scene_name=scene_name, script=script.relative_to(WORKSPACE).as_posix())
     return result
